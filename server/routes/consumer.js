@@ -122,4 +122,52 @@ router.post('/orders', requireAuth, requireRole('buyer', 'admin'), (req, res) =>
   return res.status(201).json({ order, message: 'Order reserved against farmer production plan.' })
 })
 
+router.put('/orders/:id/status', requireAuth, requireRole('buyer', 'farmer', 'admin'), (req, res) => {
+  const db = getDb()
+  const { status } = req.body
+  const allowed = ['Reserved', 'Confirmed', 'Delivered', 'Cancelled']
+  if (!allowed.includes(status)) {
+    return res.status(400).json({ error: `Invalid status. Allowed: ${allowed.join(', ')}` })
+  }
+
+  const order = db.prepare('SELECT * FROM buyer_orders WHERE id = ?').get(req.params.id)
+  if (!order) return res.status(404).json({ error: 'Order not found.' })
+
+  if (order.status === 'Cancelled' || order.status === 'Delivered') {
+    return res.status(400).json({ error: `Cannot transition order from ${order.status} to ${status}.` })
+  }
+
+  let confirmedQty = order.confirmed_qty_kg
+  let deliveredQty = order.delivered_qty_kg
+
+  if (status === 'Confirmed') {
+    confirmedQty = order.reserved_qty_kg
+  } else if (status === 'Delivered') {
+    confirmedQty = order.reserved_qty_kg
+    deliveredQty = order.reserved_qty_kg
+  } else if (status === 'Cancelled') {
+    // Release locked commitment on farmer crop plan & consumer demand
+    db.prepare('UPDATE farmer_crop_plans SET committed_qty_kg = MAX(0, committed_qty_kg - ?) WHERE id = ?').run(
+      order.reserved_qty_kg,
+      order.farmer_plan_id
+    )
+    if (order.demand_id) {
+      db.prepare('UPDATE consumer_demand SET reserved_qty_kg = MAX(0, reserved_qty_kg - ?) WHERE id = ?').run(
+        order.reserved_qty_kg,
+        order.demand_id
+      )
+    }
+    confirmedQty = 0
+    deliveredQty = 0
+  }
+
+  db.prepare(
+    `UPDATE buyer_orders SET status = ?, confirmed_qty_kg = ?, delivered_qty_kg = ? WHERE id = ?`
+  ).run(status, confirmedQty, deliveredQty, order.id)
+
+  runAnalyticsEngine(db)
+  const updated = db.prepare('SELECT * FROM buyer_orders WHERE id = ?').get(order.id)
+  return res.json({ order: updated, message: `Order #${order.id} updated to ${status}.` })
+})
+
 export default router

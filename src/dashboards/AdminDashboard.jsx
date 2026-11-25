@@ -352,6 +352,26 @@ export default function AdminDashboard({ user, onBackHome, onLogout, onNotify })
                   </form>
 
                   <div className="space-y-3 lg:col-span-7">
+                    {analytics.dataQuality && (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 rounded-2xl border border-green-200 bg-green-50/70 p-4 text-xs">
+                        <div>
+                          <p className="font-bold text-slate-500 uppercase">Avg Confidence</p>
+                          <p className="mt-0.5 text-lg font-extrabold text-green-800">{analytics.dataQuality.avgConfidencePct}%</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-500 uppercase">Duplicates Skipped</p>
+                          <p className="mt-0.5 text-lg font-extrabold text-slate-900">{analytics.dataQuality.totalDuplicatesSkipped}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-500 uppercase">Missing Flagged</p>
+                          <p className="mt-0.5 text-lg font-extrabold text-amber-700">{analytics.dataQuality.totalMissingFlagged}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-500 uppercase">Data Sources</p>
+                          <p className="mt-0.5 text-lg font-extrabold text-green-800">{analytics.dataQuality.dataSources?.length || 0}</p>
+                        </div>
+                      </div>
+                    )}
                     <h3 className="text-xl font-extrabold">Data Upload &amp; Change Audit Trail</h3>
                     {analytics.uploadLogs.map((log) => (
                       <div key={log.id} className="rounded-2xl border border-green-200 bg-white p-3.5 text-xs">

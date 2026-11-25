@@ -139,4 +139,87 @@ router.post('/upload', requireAuth, requireRole('admin'), upload.single('file'),
   })
 })
 
+router.post('/sync-external', requireAuth, requireRole('admin'), async (req, res) => {
+  const db = getDb()
+  const { apiUrl, sourceName = 'External Government API Feed', records } = req.body
+
+  let feedRows = Array.isArray(records) ? records : []
+  if (!feedRows.length && apiUrl) {
+    try {
+      const response = await fetch(apiUrl)
+      if (!response.ok) {
+        return res.status(502).json({ error: `External API returned status ${response.status}.` })
+      }
+      const json = await response.json()
+      feedRows = Array.isArray(json) ? json : Array.isArray(json.records) ? json.records : []
+    } catch (err) {
+      return res.status(502).json({ error: `Failed to fetch external API: ${err.message}` })
+    }
+  }
+
+  if (!feedRows.length) {
+    return res.status(400).json({ error: 'No records found in external API response or payload.' })
+  }
+
+  let processed = 0
+  let duplicates = 0
+  let missingFlagged = 0
+
+  const checkDup = db.prepare(
+    `SELECT id FROM government_crop_data
+     WHERE state = ? AND district = ? AND crop_name = ? AND season = ? AND year = ?`
+  )
+  const insertGov = db.prepare(
+    `INSERT INTO government_crop_data (
+      state, district, taluk, village, crop_name, season, year,
+      cultivated_area_ha, production_qty_kg, avg_yield_kg_per_ha,
+      market_price_per_qt, market_arrival_kg, weather_note, data_source, verified_status, uploaded_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Verified', ?)`
+  )
+
+  for (const raw of feedRows) {
+    const state = String(raw.state || raw.State || '').trim()
+    const district = String(raw.district || raw.District || '').trim()
+    const taluk = String(raw.taluk || raw.Taluk || 'All').trim()
+    const village = String(raw.village || raw.Village || 'All').trim()
+    const cropName = String(raw.cropName || raw.crop_name || raw['Crop Name'] || '').trim()
+    const season = String(raw.season || raw.Season || 'Rabi').trim()
+    const year = Number(raw.year || raw.Year || 2025)
+    const area = Number(raw.cultivatedAreaHa || raw.cultivated_area_ha || raw['Cultivated Area'] || 0)
+    const prod = Number(raw.productionQtyKg || raw.production_qty_kg || raw['Production Quantity'] || 0)
+    const yieldHa = Number(raw.avgYieldKgPerHa || raw.avg_yield_kg_per_ha || (area > 0 ? prod / area : 0))
+    const price = Number(raw.marketPricePerQt || raw.market_price_per_qt || 0)
+    const arrival = Number(raw.marketArrivalKg || raw.market_arrival_kg || prod * 0.85)
+    const weatherNote = String(raw.weatherNote || raw.weather_note || '').trim()
+
+    if (!state || !district || !cropName || area <= 0 || prod <= 0) {
+      missingFlagged += 1
+      continue
+    }
+    if (checkDup.get(state, district, cropName, season, year)) {
+      duplicates += 1
+      continue
+    }
+    insertGov.run(
+      state, district, taluk, village, cropName, season, year,
+      area, prod, Math.round(yieldHa), price, Math.round(arrival),
+      weatherNote, sourceName, req.user.id
+    )
+    processed += 1
+  }
+
+  db.prepare(
+    `INSERT INTO data_upload_logs (user_id, source_type, file_name, rows_processed, duplicates_skipped, missing_fields_flagged, status, action_note)
+     VALUES (?, 'External Gov API', ?, ?, ?, ?, 'Success', ?)`
+  ).run(req.user.id, apiUrl || 'external_json_payload', processed, duplicates, missingFlagged, `Synced from ${sourceName}`)
+
+  if (processed > 0) runAnalyticsEngine(db)
+  return res.status(201).json({
+    processed,
+    duplicatesSkipped: duplicates,
+    missingFieldsFlagged: missingFlagged,
+    message: `Synced ${processed} external records (${duplicates} duplicates skipped, ${missingFlagged} incomplete rows flagged).`,
+  })
+})
+
 export default router

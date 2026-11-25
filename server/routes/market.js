@@ -30,9 +30,22 @@ function applyLocationFilters(sql, params, query) {
 
 router.get('/production-forecast', (req, res) => {
   const db = getDb()
-  const base = applyLocationFilters('SELECT * FROM crop_production_predictions WHERE 1=1', [], req.query)
+  const { taluk } = req.query
+  const baseQuery =
+    taluk && taluk !== 'All'
+      ? 'SELECT * FROM crop_production_predictions WHERE 1=1'
+      : "SELECT * FROM crop_production_predictions WHERE taluk = 'All'"
+  const base = applyLocationFilters(baseQuery, [], req.query)
   const rows = db.prepare(base.sql).all(...base.params)
-  return res.json({ forecasts: rows })
+
+  const talukBase = applyLocationFilters(
+    "SELECT * FROM crop_production_predictions WHERE taluk != 'All'",
+    [],
+    { ...req.query, taluk: 'All' }
+  )
+  const talukBreakdown = db.prepare(talukBase.sql).all(...talukBase.params)
+
+  return res.json({ forecasts: rows, talukBreakdown })
 })
 
 router.get('/demand-forecast', (req, res) => {
@@ -104,7 +117,7 @@ router.get('/forecast-90-days', (req, res) => {
       ON p.crop_name = sd.crop_name AND p.state = sd.state AND p.district = sd.district AND p.season = sd.season
     LEFT JOIN price_predictions pr
       ON p.crop_name = pr.crop_name AND p.state = pr.state AND p.district = pr.district
-    WHERE 1=1
+    WHERE p.taluk = 'All'
   `
   const params = []
   if (state && state !== 'All') { sql += ' AND p.state = ?'; params.push(state) }

@@ -235,6 +235,63 @@ export function runAnalyticsEngine(db) {
       JSON.stringify(contribution)
     )
 
+    // Taluk-wise expected production breakdown for this district
+    const talukSet = new Set()
+    for (const r of matchingGov) if (r.taluk && r.taluk !== 'All') talukSet.add(r.taluk)
+    for (const p of matchingPlans) if (p.taluk && p.taluk !== 'All') talukSet.add(p.taluk)
+    for (const s of matchingSeeds) if (s.taluk && s.taluk !== 'All') talukSet.add(s.taluk)
+
+    for (const talukName of talukSet) {
+      const tGov = matchingGov.filter((r) => r.taluk === talukName)
+      const tPlans = matchingPlans.filter((p) => p.taluk === talukName)
+      const tSeeds = matchingSeeds.filter((s) => s.taluk === talukName)
+
+      const tFarmerKg = tPlans.reduce((sum, p) => sum + Number(p.planned_area_ha) * Number(p.expected_yield_kg_per_ha), 0)
+      const tGovKg = tGov.length > 0 ? tGov.reduce((sum, g) => sum + Number(g.production_qty_kg), 0) / tGov.length : 0
+      const tSeedArea = tSeeds.reduce((sum, s) => {
+        const rate = Number(s.seed_rate_kg_per_ha) > 0 ? Number(s.seed_rate_kg_per_ha) : 40
+        return sum + (Number(s.estimated_area_ha) > 0 ? Number(s.estimated_area_ha) : (Number(s.qty_sold_kg) + Number(s.qty_booked_kg) * 0.65) / rate)
+      }, 0)
+      const tSeedKg = tSeedArea * avgGovYield
+
+      let tWeight = 0
+      let tWeighted = 0
+      if (tFarmerKg > 0) { tWeighted += tFarmerKg * SOURCE_WEIGHTS.farmer; tWeight += SOURCE_WEIGHTS.farmer }
+      if (tGovKg > 0) { tWeighted += tGovKg * SOURCE_WEIGHTS.government; tWeight += SOURCE_WEIGHTS.government }
+      if (tSeedKg > 0) {
+        const dedup = tFarmerKg > 0 ? tSeedKg * 0.85 : tSeedKg
+        tWeighted += dedup * SOURCE_WEIGHTS.seed
+        tWeight += SOURCE_WEIGHTS.seed
+      }
+
+      const tExpectedKg = tWeight > 0 ? Math.round(tWeighted / tWeight) : 0
+      const tAreaHa = avgGovYield > 0 ? Number((tExpectedKg / avgGovYield).toFixed(2)) : 0
+      const tGrowth = tGovKg > 0 ? Number((((tExpectedKg - tGovKg) / tGovKg) * 100).toFixed(1)) : 0
+      const tSrcCount = (tFarmerKg > 0 ? 1 : 0) + (tGovKg > 0 ? 1 : 0) + (tSeedKg > 0 ? 1 : 0)
+      const tConf = tSrcCount === 3 ? 0.88 : tSrcCount === 2 ? 0.72 : tSrcCount === 1 ? 0.52 : 0.3
+
+      insertProd.run(
+        crop,
+        season,
+        state,
+        district,
+        talukName,
+        Math.round(tFarmerKg),
+        Math.round(tGovKg),
+        Math.round(tSeedKg),
+        tExpectedKg,
+        tAreaHa,
+        tGrowth,
+        tConf,
+        JSON.stringify({
+          farmerWeightPct: tWeight > 0 && tFarmerKg > 0 ? Math.round((SOURCE_WEIGHTS.farmer / tWeight) * 100) : 0,
+          governmentWeightPct: tWeight > 0 && tGovKg > 0 ? Math.round((SOURCE_WEIGHTS.government / tWeight) * 100) : 0,
+          seedWeightPct: tWeight > 0 && tSeedKg > 0 ? Math.round((SOURCE_WEIGHTS.seed / tWeight) * 100) : 0,
+          sourceCount: tSrcCount,
+        })
+      )
+    }
+
     // --- STEP B: PREDICT MARKET DEMAND (30 / 60 / 90 DAYS) ---
     // Separate confirmed buyer demand vs estimated demand, avoiding double counting with buyer_orders
     const confirmedDemandKg = matchingDemands

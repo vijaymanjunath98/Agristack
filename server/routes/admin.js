@@ -12,11 +12,24 @@ router.get('/analytics', requireAuth, requireRole('admin'), (_req, res) => {
   const farmerPlans = db.prepare('SELECT fp.*, f.name as farmer_name FROM farmer_crop_plans fp JOIN farmers f ON fp.farmer_id = f.id ORDER BY fp.id DESC').all()
   const seedSales = db.prepare('SELECT * FROM company_seed_sales ORDER BY id DESC').all()
   const uploadLogs = db.prepare('SELECT * FROM data_upload_logs ORDER BY id DESC LIMIT 20').all()
-  const productionForecasts = db.prepare('SELECT * FROM crop_production_predictions').all()
+  const productionForecasts = db.prepare("SELECT * FROM crop_production_predictions WHERE taluk = 'All'").all()
+  const talukForecasts = db.prepare("SELECT * FROM crop_production_predictions WHERE taluk != 'All'").all()
   const demandForecasts = db.prepare('SELECT * FROM crop_demand_predictions').all()
   const supplyDemand = db.prepare('SELECT * FROM supply_demand_analysis').all()
   const priceProtection = db.prepare('SELECT * FROM price_predictions').all()
   const alerts = db.prepare('SELECT * FROM price_alerts ORDER BY id DESC').all()
+
+  const totalDuplicatesSkipped = uploadLogs.reduce((s, l) => s + Number(l.duplicates_skipped || 0), 0)
+  const totalMissingFlagged = uploadLogs.reduce((s, l) => s + Number(l.missing_fields_flagged || 0), 0)
+  const dataSources = [...new Set(govData.map((g) => g.data_source))]
+  const avgConfidencePct =
+    productionForecasts.length > 0
+      ? Math.round(
+          (productionForecasts.reduce((s, p) => s + Number(p.confidence_score || 0), 0) /
+            productionForecasts.length) *
+            100
+        )
+      : 0
 
   return res.json({
     users,
@@ -25,10 +38,21 @@ router.get('/analytics', requireAuth, requireRole('admin'), (_req, res) => {
     seedSales,
     uploadLogs,
     productionForecasts,
+    talukForecasts,
     demandForecasts,
     supplyDemand,
     priceProtection,
     alerts,
+    dataQuality: {
+      totalDuplicatesSkipped,
+      totalMissingFlagged,
+      dataSources,
+      avgConfidencePct,
+      multiSourceRegions: productionForecasts.filter((p) => {
+        const c = JSON.parse(p.source_contribution_json || '{}')
+        return (c.sourceCount || 0) >= 2
+      }).length,
+    },
   })
 })
 

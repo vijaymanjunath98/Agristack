@@ -55,6 +55,7 @@ export const api = {
     cropData: (filters) => request(`/api/government/crop-data${toQuery(filters)}`),
     uploadManual: (payload) => request('/api/government/upload', { method: 'POST', body: JSON.stringify(payload) }),
     uploadFile: (formData) => request('/api/government/upload', { method: 'POST', body: formData }),
+    syncExternal: (payload) => request('/api/government/sync-external', { method: 'POST', body: JSON.stringify(payload) }),
   },
   company: {
     dashboard: () => request('/api/company/dashboard'),
@@ -65,6 +66,7 @@ export const api = {
     dashboard: () => request('/api/consumer/dashboard'),
     postDemand: (payload) => request('/api/consumer/demand', { method: 'POST', body: JSON.stringify(payload) }),
     placeOrder: (payload) => request('/api/consumer/orders', { method: 'POST', body: JSON.stringify(payload) }),
+    updateOrderStatus: (id, status) => request(`/api/consumer/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   },
   market: {
     publicOverview: () => request('/api/market/public-overview'),
