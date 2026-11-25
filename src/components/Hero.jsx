@@ -98,6 +98,13 @@ export default function Hero({ onOpenAuth, onQuickEnterRole }) {
               </button>
               <button
                 type="button"
+                onClick={() => onQuickEnterRole('company')}
+                className="rounded-lg bg-yellow-100 px-3 py-1.5 font-bold text-green-950 border border-yellow-300 hover:bg-yellow-200"
+              >
+                Seed Company
+              </button>
+              <button
+                type="button"
                 onClick={() => onQuickEnterRole('admin')}
                 className="rounded-lg bg-slate-100 px-3 py-1.5 font-bold text-slate-800 hover:bg-slate-200"
               >

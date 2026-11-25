@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Shield, ShieldCheck, ShoppingBag, Tractor, X } from 'lucide-react'
+import { Building2, Shield, ShieldCheck, ShoppingBag, Tractor, X } from 'lucide-react'
+import { api, setStoredToken } from '../api/client'
 
 const ROLE_OPTIONS = [
   { id: 'farmer', label: 'Farmer', icon: Tractor },
-  { id: 'buyer', label: 'Buyer', icon: ShoppingBag },
+  { id: 'buyer', label: 'Buyer / Consumer', icon: ShoppingBag },
   { id: 'agent', label: 'Village Agent', icon: ShieldCheck },
+  { id: 'company', label: 'Seed Company', icon: Building2 },
   { id: 'admin', label: 'Admin', icon: Shield },
 ]
 
@@ -12,29 +14,56 @@ export default function AuthModal({ isOpen, initialMode, initialRole, onClose, o
   const [mode, setMode] = useState(initialMode || 'login')
   const [role, setRole] = useState(initialRole || 'farmer')
   const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [village, setVillage] = useState('')
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('agri1234')
+  const [village, setVillage] = useState('Sehore')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     setMode(initialMode || 'login')
     setRole(initialRole || 'farmer')
+    setError('')
   }, [initialMode, initialRole, isOpen])
 
   if (!isOpen) return null
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    const defaultNames = {
-      farmer: 'Ramesh Patel',
-      buyer: 'Annapurna Mills',
-      agent: 'Sunita Verma',
-      admin: 'Platform Admin',
+    setSubmitting(true)
+    setError('')
+    try {
+      const res =
+        mode === 'login'
+          ? await api.auth.login({ identifier, password })
+          : await api.auth.register({
+              name: fullName,
+              identifier,
+              password,
+              role,
+              village,
+            })
+      setStoredToken(res.token)
+      onAuthenticate(res.user)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
     }
-    onAuthenticate({
-      role,
-      name: fullName.trim() || defaultNames[role],
-      location: village.trim() || 'Sehore District',
-    })
+  }
+
+  const handleDemoLogin = async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      const res = await api.auth.demoLogin(role)
+      setStoredToken(res.token)
+      onAuthenticate(res.user)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -63,7 +92,6 @@ export default function AuthModal({ isOpen, initialMode, initialRole, onClose, o
           </button>
         </div>
 
-        {/* Mode Switcher */}
         <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-green-50 p-1.5">
           <button
             type="button"
@@ -85,10 +113,16 @@ export default function AuthModal({ isOpen, initialMode, initialRole, onClose, o
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        {error && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-bold text-red-800">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
           <div>
             <label className="block text-sm font-bold text-slate-700">Select Your Role</label>
-            <div className="mt-2 grid grid-cols-2 gap-2.5">
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {ROLE_OPTIONS.map((item) => {
                 const Icon = item.icon
                 const active = role === item.id
@@ -97,7 +131,7 @@ export default function AuthModal({ isOpen, initialMode, initialRole, onClose, o
                     key={item.id}
                     type="button"
                     onClick={() => setRole(item.id)}
-                    className={`flex items-center gap-2 rounded-xl border-2 px-3.5 py-2.5 text-sm font-bold transition ${
+                    className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-xs font-bold transition ${
                       active
                         ? 'border-green-700 bg-yellow-50 text-green-950'
                         : 'border-green-100 bg-white text-slate-700 hover:border-green-300'
@@ -120,22 +154,32 @@ export default function AuthModal({ isOpen, initialMode, initialRole, onClose, o
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="e.g., Ramesh Patel"
-                className="mt-1 w-full rounded-xl border border-green-200 px-4 py-3 text-base outline-none focus:border-green-600"
+                className="mt-1 w-full rounded-xl border border-green-200 px-4 py-2.5 text-sm outline-none focus:border-green-600"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-bold text-slate-700">
-              Mobile Number or Email
-            </label>
+            <label className="block text-sm font-bold text-slate-700">Mobile Number or Email</label>
             <input
               type="text"
               required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="e.g., 98765 43210"
-              className="mt-1 w-full rounded-xl border border-green-200 px-4 py-3 text-base outline-none focus:border-green-600"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="e.g., farmer@agri.in or 9876543210"
+              className="mt-1 w-full rounded-xl border border-green-200 px-4 py-2.5 text-sm outline-none focus:border-green-600"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700">Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Default demo password: agri1234"
+              className="mt-1 w-full rounded-xl border border-green-200 px-4 py-2.5 text-sm outline-none focus:border-green-600"
             />
           </div>
 
@@ -148,41 +192,33 @@ export default function AuthModal({ isOpen, initialMode, initialRole, onClose, o
                 value={village}
                 onChange={(e) => setVillage(e.target.value)}
                 placeholder="e.g., Sehore, Madhya Pradesh"
-                className="mt-1 w-full rounded-xl border border-green-200 px-4 py-3 text-base outline-none focus:border-green-600"
+                className="mt-1 w-full rounded-xl border border-green-200 px-4 py-2.5 text-sm outline-none focus:border-green-600"
               />
             </div>
           )}
 
           <button
             type="submit"
-            className="w-full rounded-2xl bg-green-700 py-3.5 text-base font-bold text-white shadow-sm hover:bg-green-800"
+            disabled={submitting}
+            className="w-full rounded-2xl bg-green-700 py-3 text-base font-bold text-white shadow-sm hover:bg-green-800 disabled:opacity-50"
           >
-            {mode === 'login' ? 'Enter Dashboard' : 'Register & Open Dashboard'}
+            {submitting
+              ? 'Please wait...'
+              : mode === 'login'
+              ? 'Enter Dashboard'
+              : 'Register & Open Dashboard'}
           </button>
         </form>
 
-        {/* Instant 1-Click Prototype Entry */}
         <div className="mt-4 border-t border-green-100 pt-4 text-center">
           <p className="text-xs font-semibold text-slate-500">
-            Prototype shortcut: skip typing and jump straight in
+            Instant JWT-authenticated demo login:
           </p>
           <button
             type="button"
-            onClick={() =>
-              onAuthenticate({
-                role,
-                name:
-                  role === 'farmer'
-                    ? 'Ramesh Patel'
-                    : role === 'buyer'
-                    ? 'Annapurna Mills'
-                    : role === 'agent'
-                    ? 'Sunita Verma'
-                    : 'Platform Admin',
-                location: 'Demo Mode',
-              })
-            }
-            className="mt-2 rounded-xl bg-yellow-100 px-4 py-2 text-xs font-extrabold text-green-950 border border-yellow-300 hover:bg-yellow-200"
+            disabled={submitting}
+            onClick={handleDemoLogin}
+            className="mt-2 rounded-xl border border-yellow-300 bg-yellow-100 px-4 py-2 text-xs font-extrabold text-green-950 hover:bg-yellow-200"
           >
             Quick Demo Login as {ROLE_OPTIONS.find((r) => r.id === role)?.label} →
           </button>
