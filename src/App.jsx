@@ -154,7 +154,11 @@ export default function App() {
     <>
       {activeView === 'landing' && (
         <div className="min-h-screen bg-white text-slate-900">
-          <Navbar onOpenAuth={openAuth} />
+          <Navbar
+            currentUser={currentUser}
+            onOpenAuth={openAuth}
+            onOpenMyDashboard={() => currentUser && setActiveView(currentUser.role)}
+          />
           <main>
             <Hero onOpenAuth={openAuth} onQuickEnterRole={requestPageAccess} />
             <RoleCards onQuickEnterRole={requestPageAccess} onOpenAuth={openAuth} />

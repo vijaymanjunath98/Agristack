@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api/client'
 import AnalyticsCharts from '../components/AnalyticsCharts'
+import DashboardShell from '../components/DashboardShell'
 
 const TABS = [
   { id: 'browse', label: 'Reserve Farm Crops', icon: Store },
@@ -103,75 +104,20 @@ export default function BuyerDashboard({ user, onBackHome, onLogout, onNotify })
   const visiblePlans = plans.filter((p) => (onlyVerified ? p.verified_status === 'Verified' : true))
 
   return (
-    <div className="min-h-screen bg-green-50/40 text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-yellow-300 bg-yellow-100 text-green-950 shadow-sm">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-800 text-yellow-200">
-              <Sprout className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-extrabold">AGRI.IN</span>
-                <span className="rounded-full bg-green-800 px-2.5 py-0.5 text-xs font-bold text-yellow-200">
-                  Consumer &amp; Buyer Portal
-                </span>
-              </div>
-              <p className="text-xs font-semibold text-green-800">
-                Signed in as {user?.name || 'Annapurna Mills'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={onBackHome}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-green-700 bg-white px-3.5 py-2 text-sm font-bold text-green-900 hover:bg-green-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Website Home
-            </button>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-green-800 px-3.5 py-2 text-sm font-bold text-white hover:bg-green-900"
-            >
-              <LogOut className="h-4 w-4" />
-              Log Out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-12 lg:px-8">
-        <aside className="lg:col-span-3">
-          <div className="rounded-3xl border border-green-200 bg-white p-4 shadow-sm">
-            <p className="px-3 pb-2 text-xs font-extrabold uppercase tracking-wider text-green-700">
-              Buyer Menu
-            </p>
-            <nav className="flex flex-row gap-2 overflow-x-auto lg:flex-col">
-              {TABS.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${
-                      activeTab === tab.id ? 'bg-green-800 text-white' : 'text-slate-700 hover:bg-yellow-50'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                )
-              })}
-            </nav>
-          </div>
-        </aside>
-
-        <main className="space-y-6 lg:col-span-9">
+    <DashboardShell
+      roleBadge="Consumer & Buyer Portal"
+      userLabel={`Signed in as ${user?.name || 'Annapurna Mills'}`}
+      menuTitle="Buyer Menu"
+      tabs={TABS}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      headerClass="bg-green-900 text-white border-green-800"
+      badgeClass="bg-yellow-300 text-green-950"
+      activeTabClass="bg-green-800 text-white shadow-sm"
+      bgClass="bg-green-50/40"
+      onBackHome={onBackHome}
+      onLogout={onLogout}
+    >
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-green-200 bg-white p-5">
               <p className="text-sm font-bold text-slate-500">Available Crop Plans</p>
@@ -327,8 +273,6 @@ export default function BuyerDashboard({ user, onBackHome, onLogout, onNotify })
               {activeTab === 'analytics' && <AnalyticsCharts />}
             </>
           )}
-        </main>
-      </div>
-    </div>
+    </DashboardShell>
   )
 }

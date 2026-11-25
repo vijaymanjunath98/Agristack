@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api/client'
 import AnalyticsCharts from '../components/AnalyticsCharts'
+import DashboardShell from '../components/DashboardShell'
 
 const TABS = [
   { id: 'overview', label: 'Analytics & Charts', icon: BarChart3 },
@@ -158,82 +159,30 @@ export default function AdminDashboard({ user, onBackHome, onLogout, onNotify })
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-green-800 bg-slate-900 text-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-600 text-yellow-200">
-              <Sprout className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-extrabold">AGRI.IN</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-300 px-2.5 py-0.5 text-xs font-extrabold text-green-950">
-                  <Shield className="h-3.5 w-3.5" />
-                  Admin Intelligence Center
-                </span>
-              </div>
-              <p className="text-xs text-slate-300">Operator: {user?.name || 'Platform Admin'}</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleRunEngine}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-green-700 px-3.5 py-2 text-sm font-bold text-white hover:bg-green-600"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Run Forecast Engine
-            </button>
-            <button
-              type="button"
-              onClick={onBackHome}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-sm font-bold text-white hover:bg-slate-700"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Website Home
-            </button>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-yellow-300 px-3.5 py-2 text-sm font-bold text-green-950 hover:bg-yellow-200"
-            >
-              <LogOut className="h-4 w-4" />
-              Log Out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-12 lg:px-8">
-        <aside className="lg:col-span-3">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="px-3 pb-2 text-xs font-extrabold uppercase tracking-wider text-green-700">
-              Admin Controls
-            </p>
-            <nav className="flex flex-row gap-2 overflow-x-auto lg:flex-col">
-              {TABS.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${
-                      activeTab === tab.id ? 'bg-green-700 text-white' : 'text-slate-700 hover:bg-green-50'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                )
-              })}
-            </nav>
-          </div>
-        </aside>
-
-        <main className="space-y-6 lg:col-span-9">
+    <DashboardShell
+      roleBadge="Admin Intelligence Center"
+      userLabel={`Operator: ${user?.name || 'Platform Admin'}`}
+      menuTitle="Admin Controls"
+      tabs={TABS}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      headerClass="bg-slate-900 text-white border-green-800"
+      badgeClass="bg-yellow-300 text-green-950"
+      activeTabClass="bg-green-700 text-white shadow-sm"
+      bgClass="bg-slate-50"
+      headerActions={
+        <button
+          type="button"
+          onClick={handleRunEngine}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-green-700 px-3.5 py-2 text-sm font-bold text-white transition hover:bg-green-600"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Run Forecast Engine
+        </button>
+      }
+      onBackHome={onBackHome}
+      onLogout={onLogout}
+    >
           <div className="grid gap-4 sm:grid-cols-4">
             <div className="rounded-2xl border border-green-200 bg-white p-4">
               <p className="text-xs font-bold uppercase text-slate-500">Users</p>
@@ -421,8 +370,6 @@ export default function AdminDashboard({ user, onBackHome, onLogout, onNotify })
               )}
             </>
           )}
-        </main>
-      </div>
-    </div>
+    </DashboardShell>
   )
 }
